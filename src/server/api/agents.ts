@@ -15,7 +15,10 @@ import {
 } from '../db/index.js';
 import { CONFIG } from '../config.js';
 import { computeGameTime } from './world.js';
+import { JournalSystem } from '../engine/journal.js';
 import type { BigFiveTraits } from '../../shared/types.js';
+
+const journal = new JournalSystem();
 
 export function createAgentRouter(): Router {
   const router = Router();
@@ -272,6 +275,64 @@ export function createAgentRouter(): Router {
     } catch (err) {
       console.error('Error fetching messages:', err);
       res.status(500).json({ error: 'Failed to fetch messages', code: 'INTERNAL' });
+    }
+  });
+
+  // POST /api/agents/:id/journal — Write a journal entry (AUTHED)
+  router.post('/:id/journal', authenticateAgent, (req: Request, res: Response) => {
+    try {
+      const agent = req.agent!;
+      const { day, entry } = req.body;
+
+      if (typeof day !== 'number' || day < 1) {
+        res.status(400).json({ error: 'day must be a positive number', code: 'BAD_INPUT' });
+        return;
+      }
+      if (!entry || typeof entry !== 'string' || entry.length < 1) {
+        res.status(400).json({ error: 'entry must be a non-empty string', code: 'BAD_INPUT' });
+        return;
+      }
+      if (entry.length > 5000) {
+        res.status(400).json({ error: 'entry must be 5000 characters or fewer', code: 'BAD_INPUT' });
+        return;
+      }
+
+      const tick = parseInt(getWorldState('tick') || '0', 10);
+      journal.writeEntry(agent.id, day, entry, tick);
+
+      res.status(201).json({ success: true, day, agentId: agent.id });
+    } catch (err) {
+      console.error('Error writing journal entry:', err);
+      res.status(500).json({ error: 'Failed to write journal entry', code: 'INTERNAL' });
+    }
+  });
+
+  // GET /api/agents/:id/journal — Read journal entries (PUBLIC)
+  router.get('/:id/journal', (req: Request, res: Response) => {
+    try {
+      const agentId = req.params.id as string;
+      const agent = getAgent(agentId);
+      if (!agent) {
+        res.status(404).json({ error: 'Agent not found', code: 'NOT_FOUND' });
+        return;
+      }
+
+      const limit = Math.min(parseInt(req.query.limit as string || '20', 10), 100);
+      const entries = journal.getEntries(agentId, limit);
+
+      res.json({
+        agentId,
+        agentName: agent.name,
+        entries: entries.map(e => ({
+          id: e.id,
+          day: e.day,
+          entry: e.entry,
+          createdAtTick: e.created_at_tick,
+        })),
+      });
+    } catch (err) {
+      console.error('Error reading journal:', err);
+      res.status(500).json({ error: 'Failed to read journal', code: 'INTERNAL' });
     }
   });
 

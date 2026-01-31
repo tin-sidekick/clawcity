@@ -101,6 +101,16 @@ CREATE TABLE IF NOT EXISTS world_state (
   value TEXT NOT NULL
 );
 
+-- Agent journals (daily reflections, publicly readable)
+CREATE TABLE IF NOT EXISTS journals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  agent_id TEXT NOT NULL,
+  day INTEGER NOT NULL,
+  entry TEXT NOT NULL,
+  created_at_tick INTEGER NOT NULL DEFAULT 0,
+  FOREIGN KEY (agent_id) REFERENCES agents(id)
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_tiles_type ON tiles(type);
 CREATE INDEX IF NOT EXISTS idx_agents_location ON agents(x, y);
@@ -108,3 +118,5 @@ CREATE INDEX IF NOT EXISTS idx_messages_tick ON messages(tick);
 CREATE INDEX IF NOT EXISTS idx_events_tick ON events(tick);
 CREATE INDEX IF NOT EXISTS idx_events_highlight ON events(highlight_score);
 CREATE INDEX IF NOT EXISTS idx_market_item ON market_listings(item);
+CREATE INDEX IF NOT EXISTS idx_journals_agent ON journals(agent_id);
+CREATE INDEX IF NOT EXISTS idx_journals_day ON journals(agent_id, day);
