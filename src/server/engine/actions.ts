@@ -9,6 +9,8 @@ import { CONFIG } from '../config.js';
 import { MapManager } from './map.js';
 import { RECIPES, canCraft, deductMaterials, addToInventory, removeFromInventory } from './crafting.js';
 import type { Action, ActionType, Agent } from '../../shared/types.js';
+import type { EconomySystem } from './economy.js';
+import type { SocialSystem } from './social.js';
 
 // --- Energy costs per action ---
 const ENERGY_COSTS: Record<string, number> = {
@@ -41,10 +43,20 @@ interface QueuedAction {
 export class ActionQueue {
   private queue: QueuedAction[] = [];
   private mapManager: MapManager;
+  private economySystem: EconomySystem | null = null;
+  private socialSystem: SocialSystem | null = null;
   private actionsThisTick: Map<string, number> = new Map(); // agentId -> count
 
   constructor(mapManager: MapManager) {
     this.mapManager = mapManager;
+  }
+
+  attachEconomySystem(economySystem: EconomySystem): void {
+    this.economySystem = economySystem;
+  }
+
+  attachSocialSystem(socialSystem: SocialSystem): void {
+    this.socialSystem = socialSystem;
   }
 
   /**
@@ -263,6 +275,67 @@ export class ActionQueue {
         break;
       }
 
+      case 'buy': {
+        const listingId = params.listing_id as string;
+        if (!listingId) return { valid: false, reason: 'No listing_id specified' };
+        if (!this.economySystem) return { valid: false, reason: 'Economy system not available' };
+        break;
+      }
+
+      case 'sell': {
+        const item = params.item as string;
+        const quantity = (params.quantity as number) || 1;
+        const price = (params.price_per_unit as number) || 1;
+        
+        if (!item) return { valid: false, reason: 'No item specified' };
+        if (quantity <= 0) return { valid: false, reason: 'Quantity must be positive' };
+        if (price <= 0) return { valid: false, reason: 'Price must be positive' };
+        if (!this.economySystem) return { valid: false, reason: 'Economy system not available' };
+
+        const inv = JSON.parse(agent.inventory || '{}');
+        if ((inv[item] || 0) < quantity) {
+          return { valid: false, reason: `Not enough ${item} (have ${inv[item] || 0}, need ${quantity})` };
+        }
+        break;
+      }
+
+      case 'claim_land': {
+        const x = params.x as number;
+        const y = params.y as number;
+        
+        if (typeof x !== 'number' || typeof y !== 'number') {
+          return { valid: false, reason: 'Invalid coordinates' };
+        }
+        if (!this.economySystem) return { valid: false, reason: 'Economy system not available' };
+
+        const distance = Math.abs(x - agent.x) + Math.abs(y - agent.y);
+        if (distance > 3) {
+          return { valid: false, reason: 'Too far to claim land (must be within 3 tiles)' };
+        }
+        break;
+      }
+
+      case 'create_faction': {
+        const name = params.name as string;
+        const description = params.description as string;
+        
+        if (!name || !description) return { valid: false, reason: 'Name and description required' };
+        if (!this.socialSystem) return { valid: false, reason: 'Social system not available' };
+        break;
+      }
+
+      case 'spread_gossip': {
+        const subjectId = params.subject_agent_id as string;
+        const claim = params.claim as string;
+        
+        if (!subjectId || !claim) return { valid: false, reason: 'Subject agent ID and claim required' };
+        if (!this.socialSystem) return { valid: false, reason: 'Social system not available' };
+
+        const subject = getAgent(subjectId);
+        if (!subject) return { valid: false, reason: 'Subject agent not found' };
+        break;
+      }
+
       default:
         // Allow unknown action types to pass through (future-proofing)
         break;
@@ -301,6 +374,16 @@ export class ActionQueue {
       case 'talk':
       case 'chat':
         return this.executeTalk(agent, params, currentTick);
+      case 'buy':
+        return this.executeBuy(agent, params, currentTick);
+      case 'sell':
+        return this.executeSell(agent, params, currentTick);
+      case 'claim_land':
+        return this.executeClaimLand(agent, params, currentTick);
+      case 'create_faction':
+        return this.executeCreateFaction(agent, params, currentTick);
+      case 'spread_gossip':
+        return this.executeSpreadGossip(agent, params, currentTick);
       case 'gift':
         return this.executeGift(agent, params, currentTick);
       default:
@@ -499,6 +582,152 @@ export class ActionQueue {
       success: true,
       message: `Gave ${amount} ${item} to ${target.name}`,
       data: { target_id: targetId, item, amount },
+    };
+  }
+
+  private executeBuy(agent: Agent, params: Record<string, unknown>, tick: number): ActionResult {
+    if (!this.economySystem) {
+      return { agentId: agent.id, action: 'buy', success: false, message: 'Economy system not available' };
+    }
+
+    const listingId = params.listing_id as string;
+    const result = this.economySystem.buyItem(agent.id, listingId);
+
+    if (result.success) {
+      this.logEvent('market_sale', {
+        buyer: agent.id,
+        listing_id: listingId,
+        data: result.data,
+      }, tick, 1);
+    }
+
+    return {
+      agentId: agent.id,
+      action: 'buy',
+      success: result.success,
+      message: result.message,
+      data: result.data,
+    };
+  }
+
+  private executeSell(agent: Agent, params: Record<string, unknown>, tick: number): ActionResult {
+    if (!this.economySystem) {
+      return { agentId: agent.id, action: 'sell', success: false, message: 'Economy system not available' };
+    }
+
+    const item = params.item as string;
+    const quantity = (params.quantity as number) || 1;
+    const pricePerUnit = (params.price_per_unit as number) || 1;
+
+    const result = this.economySystem.listItem(agent.id, item, quantity, pricePerUnit, tick);
+
+    if (result.success) {
+      this.logEvent('market_listing', {
+        seller: agent.id,
+        item,
+        quantity,
+        price_per_unit: pricePerUnit,
+        listing_id: result.listingId,
+      }, tick, 1);
+    }
+
+    return {
+      agentId: agent.id,
+      action: 'sell',
+      success: result.success,
+      message: result.message,
+      data: { listing_id: result.listingId },
+    };
+  }
+
+  private executeClaimLand(agent: Agent, params: Record<string, unknown>, tick: number): ActionResult {
+    if (!this.economySystem) {
+      return { agentId: agent.id, action: 'claim_land', success: false, message: 'Economy system not available' };
+    }
+
+    const x = params.x as number;
+    const y = params.y as number;
+
+    const result = this.economySystem.claimLand(agent.id, x, y, tick);
+
+    if (result.success) {
+      this.logEvent('land_claimed', {
+        agent: agent.id,
+        x,
+        y,
+        cost: result.cost,
+      }, tick, 2);
+    }
+
+    return {
+      agentId: agent.id,
+      action: 'claim_land',
+      success: result.success,
+      message: result.message,
+      data: { x, y, cost: result.cost },
+    };
+  }
+
+  private executeCreateFaction(agent: Agent, params: Record<string, unknown>, tick: number): ActionResult {
+    if (!this.socialSystem) {
+      return { agentId: agent.id, action: 'create_faction', success: false, message: 'Social system not available' };
+    }
+
+    const name = params.name as string;
+    const description = params.description as string;
+    const rules = (params.rules as string) || '';
+
+    const result = this.socialSystem.createFaction(agent.id, name, description, rules, tick);
+
+    if (result.success) {
+      this.logEvent('faction_created', {
+        founder: agent.id,
+        faction_name: name,
+        faction_id: result.factionId,
+      }, tick, 3);
+    }
+
+    return {
+      agentId: agent.id,
+      action: 'create_faction',
+      success: result.success,
+      message: result.message,
+      data: { faction_id: result.factionId },
+    };
+  }
+
+  private executeSpreadGossip(agent: Agent, params: Record<string, unknown>, tick: number): ActionResult {
+    if (!this.socialSystem) {
+      return { agentId: agent.id, action: 'spread_gossip', success: false, message: 'Social system not available' };
+    }
+
+    const subjectId = params.subject_agent_id as string;
+    const claim = params.claim as string;
+    const truthScore = Math.max(0, Math.min(1, (params.truth_score as number) || 0.5));
+
+    const result = this.socialSystem.createGossip(agent.id, subjectId, claim, truthScore, tick);
+
+    if (result.success) {
+      this.logEvent('gossip_spread', {
+        source: agent.id,
+        subject: subjectId,
+        claim,
+        truth_score: truthScore,
+        gossip_id: result.gossipId,
+      }, tick, 2);
+
+      // Update reputation based on gossip spreading behavior
+      if (this.socialSystem) {
+        this.socialSystem.updateReputationAfterInteraction(agent.id, subjectId, 'gossip', 'spread', tick);
+      }
+    }
+
+    return {
+      agentId: agent.id,
+      action: 'spread_gossip',
+      success: result.success,
+      message: result.message,
+      data: { gossip_id: result.gossipId },
     };
   }
 

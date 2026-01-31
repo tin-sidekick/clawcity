@@ -158,7 +158,15 @@ export type ActionType =
   | 'craft'
   | 'buy'
   | 'sell'
-  | 'gift';
+  | 'gift'
+  | 'claim_land'
+  | 'create_faction'
+  | 'join_faction'
+  | 'spread_gossip'
+  | 'create_proposal'
+  | 'vote_on_proposal'
+  | 'create_community_project'
+  | 'contribute_to_project';
 
 export interface Action {
   type: ActionType;
@@ -189,6 +197,63 @@ export interface BuildAction extends Action {
 export interface TradeAction extends Action {
   type: 'trade';
   params: { target_id: string; offer: Record<string, number>; request: Record<string, number> };
+}
+
+export interface BuyAction extends Action {
+  type: 'buy';
+  params: { listing_id: string };
+}
+
+export interface SellAction extends Action {
+  type: 'sell';
+  params: { item: string; quantity: number; price_per_unit: number };
+}
+
+export interface ClaimLandAction extends Action {
+  type: 'claim_land';
+  params: { x: number; y: number };
+}
+
+export interface CreateFactionAction extends Action {
+  type: 'create_faction';
+  params: { name: string; description: string; rules?: string };
+}
+
+export interface JoinFactionAction extends Action {
+  type: 'join_faction';
+  params: { faction_id: string };
+}
+
+export interface SpreadGossipAction extends Action {
+  type: 'spread_gossip';
+  params: { subject_agent_id: string; claim: string; truth_score?: number };
+}
+
+export interface CreateProposalAction extends Action {
+  type: 'create_proposal';
+  params: { title: string; description: string; type?: string; data?: any };
+}
+
+export interface VoteOnProposalAction extends Action {
+  type: 'vote_on_proposal';
+  params: { proposal_id: string; vote: 'for' | 'against' };
+}
+
+export interface CreateCommunityProjectAction extends Action {
+  type: 'create_community_project';
+  params: { 
+    name: string; 
+    description: string; 
+    target_resources: Record<string, number>;
+    reward_building_type: string;
+    reward_x: number;
+    reward_y: number;
+  };
+}
+
+export interface ContributeToProjectAction extends Action {
+  type: 'contribute_to_project';
+  params: { project_id: string; resources: Record<string, number> };
 }
 
 // --- WebSocket Events ---
@@ -223,4 +288,120 @@ export interface WSWorldUpdatePayload {
   agents: Partial<Agent>[];
   buildings: Building[];
   events: WorldEvent[];
+}
+
+// --- Economy Types ---
+
+export interface EconomyStats {
+  totalShellCoins: number;
+  circulatingCoins: number;
+  averageWealth: number;
+  wealthDistribution: { bottom50: number; middle40: number; top10: number };
+  marketVolume: number;
+  activeTrades: number;
+  inflation: number;
+  gdp: number;
+}
+
+export interface Shop {
+  id: string;
+  buildingId: string;
+  ownerId: string;
+  ownerName: string;
+  inventory: Record<string, number>;
+  displayName: string;
+  x: number;
+  y: number;
+}
+
+// --- Social Types ---
+
+export interface Faction {
+  id: string;
+  name: string;
+  description: string;
+  founder_id: string;
+  created_at_tick: number;
+  member_count: number;
+  reputation: number;
+  rules: string;
+  is_active: boolean;
+}
+
+export interface FactionMember {
+  faction_id: string;
+  agent_id: string;
+  role: 'member' | 'officer' | 'leader';
+  joined_at_tick: number;
+  contribution_score: number;
+}
+
+export interface GossipItem {
+  id: string;
+  subject_agent_id: string;
+  claim: string;
+  source_agent_id: string;
+  spread_count: number;
+  truth_score: number;
+  created_at_tick: number;
+  last_spread_tick: number;
+  decay_factor: number;
+}
+
+export interface AgentReputation {
+  honest: number;
+  generous: number;
+  aggressive: number;
+  creative: number;
+  reliable: number;
+  judge_count: number;
+}
+
+// --- Governance Types ---
+
+export interface Proposal {
+  id: string;
+  title: string;
+  description: string;
+  author_id: string;
+  type: 'general' | 'mayor_election' | 'community_project' | 'policy';
+  votes_for: number;
+  votes_against: number;
+  status: 'active' | 'passed' | 'failed' | 'campaign';
+  created_at_tick: number;
+  voting_ends_at_tick: number;
+  data: string;
+}
+
+export interface Vote {
+  proposal_id: string;
+  agent_id: string;
+  vote: 'for' | 'against';
+  cast_at_tick: number;
+}
+
+export interface Office {
+  id: string;
+  title: string;
+  description: string;
+  holder_id: string | null;
+  elected_at_tick: number | null;
+  term_ends_at_tick: number | null;
+  powers: string;
+}
+
+export interface CommunityProject {
+  id: string;
+  name: string;
+  description: string;
+  initiator_id: string;
+  target_resources: string;
+  contributed_resources: string;
+  contributors: string;
+  reward_building_type: string;
+  reward_x: number;
+  reward_y: number;
+  status: 'active' | 'completed' | 'failed';
+  created_at_tick: number;
+  deadline_tick: number | null;
 }

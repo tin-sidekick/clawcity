@@ -8,6 +8,8 @@ import { MapManager } from './engine/map.js';
 import { ActionQueue } from './engine/actions.js';
 import { HighlightDetector } from './engine/highlights.js';
 import { WorldEventSystem } from './engine/world-events.js';
+import { EconomySystem } from './engine/economy.js';
+import { SocialSystem } from './engine/social.js';
 import { CONFIG } from './config.js';
 
 // --- Initialize ---
@@ -39,6 +41,12 @@ highlightDetector.loadFromDb();
 const worldEventSystem = new WorldEventSystem();
 worldEventSystem.attachHighlightDetector(highlightDetector);
 
+// Economy system
+const economySystem = new EconomySystem();
+
+// Social system
+const socialSystem = new SocialSystem();
+
 // Tick engine — wire up all components
 const engine = new TickEngine();
 engine.attachWebSocket(wsServer);
@@ -46,9 +54,15 @@ engine.attachMapManager(mapManager);
 engine.attachActionQueue(actionQueue);
 engine.attachHighlightDetector(highlightDetector);
 engine.attachWorldEventSystem(worldEventSystem);
+engine.attachEconomySystem(economySystem);
+engine.attachSocialSystem(socialSystem);
+
+// Wire systems to action queue
+actionQueue.attachEconomySystem(economySystem);
+actionQueue.attachSocialSystem(socialSystem);
 
 // API routes — pass engine components
-setupAPI(app, wsServer, highlightDetector, worldEventSystem);
+setupAPI(app, wsServer, highlightDetector, worldEventSystem, economySystem, socialSystem);
 
 // Make engine components available globally for API routes
 (app as any).mapManager = mapManager;
@@ -56,6 +70,8 @@ setupAPI(app, wsServer, highlightDetector, worldEventSystem);
 (app as any).tickEngine = engine;
 (app as any).highlightDetector = highlightDetector;
 (app as any).worldEventSystem = worldEventSystem;
+(app as any).economySystem = economySystem;
+(app as any).socialSystem = socialSystem;
 
 // --- Start servers ---
 app.listen(CONFIG.PORT, () => {

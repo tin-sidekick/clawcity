@@ -11,6 +11,8 @@ import { ActionQueue } from './actions.js';
 import type { HighlightDetector } from './highlights.js';
 import type { WorldEventSystem } from './world-events.js';
 import type { SpectatorWebSocket } from '../ws/index.js';
+import type { EconomySystem } from './economy.js';
+import type { SocialSystem } from './social.js';
 
 // --- Time Phase Mapping ---
 // 480 ticks per game day
@@ -33,6 +35,8 @@ export class TickEngine extends EventEmitter {
   private actionQueue: ActionQueue | null = null;
   private highlightDetector: HighlightDetector | null = null;
   private worldEventSystem: WorldEventSystem | null = null;
+  private economySystem: EconomySystem | null = null;
+  private socialSystem: SocialSystem | null = null;
 
   attachWebSocket(wsServer: SpectatorWebSocket): void {
     this.wsServer = wsServer;
@@ -52,6 +56,14 @@ export class TickEngine extends EventEmitter {
 
   attachWorldEventSystem(system: WorldEventSystem): void {
     this.worldEventSystem = system;
+  }
+
+  attachEconomySystem(system: EconomySystem): void {
+    this.economySystem = system;
+  }
+
+  attachSocialSystem(system: SocialSystem): void {
+    this.socialSystem = system;
   }
 
   start(): void {
@@ -95,6 +107,17 @@ export class TickEngine extends EventEmitter {
     // 3. Respawn depleted resources
     if (this.mapManager) {
       this.mapManager.respawnResources(newTick);
+    }
+
+    // 3.5. Process economy system (property tax, rent, market expiry, scarcity)
+    if (this.economySystem) {
+      this.economySystem.processTick(newTick, this.getSeason());
+    }
+
+    // 3.6. Process social system (relationships, gossip decay, faction reputation)
+    if (this.socialSystem) {
+      this.socialSystem.processTick(newTick);
+      this.socialSystem.spreadGossip(newTick);
     }
 
     // 4. Update weather (10% chance of change per tick)
