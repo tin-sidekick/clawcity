@@ -5,10 +5,14 @@
 import React, { useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Vector3 } from 'three';
-import { useWorldStore } from '../stores/useWorldStore';
+import { useWorldStore } from '../stores/worldStore';
 
 const CAMERA_OFFSET = new Vector3(5, 8, 5);
 const LERP_SPEED = 0.05;
+
+// Reusable vectors — allocated once, reused every frame (avoid GC pressure)
+const _targetPos = new Vector3();
+const _desiredCameraPos = new Vector3();
 
 export function FollowCamera() {
   const { camera } = useThree();
@@ -31,12 +35,12 @@ export function FollowCamera() {
   useFrame(() => {
     if (!targetAgent) return;
 
-    const targetPos = new Vector3(targetAgent.x, 0, targetAgent.y);
-    const desiredCameraPos = targetPos.clone().add(CAMERA_OFFSET);
+    _targetPos.set(targetAgent.x, 0, targetAgent.y);
+    _desiredCameraPos.copy(_targetPos).add(CAMERA_OFFSET);
 
     // Smooth lerp to follow position
-    camera.position.lerp(desiredCameraPos, LERP_SPEED);
-    camera.lookAt(targetPos);
+    camera.position.lerp(_desiredCameraPos, LERP_SPEED);
+    camera.lookAt(_targetPos);
   });
 
   return null;

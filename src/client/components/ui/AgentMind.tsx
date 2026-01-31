@@ -3,7 +3,7 @@
 // ============================================================
 
 import React from 'react';
-import { useWorldStore } from '../../stores/useWorldStore';
+import { useWorldStore } from '../../stores/worldStore';
 import { useAgentProfile } from '../../hooks/useAgentProfile';
 import { agentColor, moodInfo, itemEmoji, relationshipEmoji } from '../../utils/helpers';
 

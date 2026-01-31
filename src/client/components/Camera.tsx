@@ -12,13 +12,26 @@ export default function Camera() {
   const mapSize = useWorldStore((s) => s.mapSize);
   const { camera } = useThree();
 
+  const followAgent = useWorldStore((s) => s.followAgent);
+
   // Set initial camera position (isometric-ish)
   useEffect(() => {
     camera.position.set(20, 18, 20);
     camera.lookAt(0, 0, 0);
   }, [camera]);
 
-  // Follow selected agent
+  // Handle Escape key to exit follow mode
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && followMode) {
+        followAgent(null);
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [followMode, followAgent]);
+
+  // Follow selected agent with zoom-in
   useFrame(() => {
     if (!followMode || !selectedAgent || !controlsRef.current) return;
 
@@ -29,10 +42,16 @@ export default function Camera() {
     const targetX = agent.x - halfMap + 0.5;
     const targetZ = agent.y - halfMap + 0.5;
 
+    // Smooth orbit target tracking
     const target = controlsRef.current.target as THREE.Vector3;
-    target.x = THREE.MathUtils.lerp(target.x, targetX, 0.03);
-    target.z = THREE.MathUtils.lerp(target.z, targetZ, 0.03);
+    target.x = THREE.MathUtils.lerp(target.x, targetX, 0.05);
+    target.z = THREE.MathUtils.lerp(target.z, targetZ, 0.05);
     target.y = 0;
+
+    // Zoom camera closer for third-person feel
+    const desiredPos = new THREE.Vector3(targetX + 5, 8, targetZ + 5);
+    camera.position.lerp(desiredPos, 0.03);
+
     controlsRef.current.update();
   });
 

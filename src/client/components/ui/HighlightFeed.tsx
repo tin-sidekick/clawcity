@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useEffect } from 'react';
-import { useWorldStore } from '../../stores/useWorldStore';
+import { useWorldStore } from '../../stores/worldStore';
 import { shareHighlight } from '../../utils/share';
 
 export function HighlightFeed() {

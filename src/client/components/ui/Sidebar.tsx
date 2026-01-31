@@ -3,7 +3,7 @@
 // ============================================================
 
 import React from 'react';
-import { useWorldStore } from '../../stores/useWorldStore';
+import { useWorldStore } from '../../stores/worldStore';
 import { ChatFeed } from './ChatFeed';
 import { HighlightFeed } from './HighlightFeed';
 import { StatsPanel } from './StatsPanel';

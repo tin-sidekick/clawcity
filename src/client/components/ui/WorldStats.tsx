@@ -3,13 +3,11 @@
 // ============================================================
 
 import React from 'react';
-import { useWorldStore } from '../../stores/useWorldStore';
+import { useWorldStore } from '../../stores/worldStore';
 import { weatherEmoji, seasonEmoji, formatGameTime } from '../../utils/helpers';
 
 export function WorldStats() {
   const { day, hour, minute, weather, season, agents, buildings, connected } = useWorldStore();
-
-  const totalCoins = agents.reduce((sum, a) => sum + (a.shellCoins || 0), 0);
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 flex items-center gap-1 px-3 py-1.5 bg-[#1a1a2e]/90 backdrop-blur-md border-b border-white/10 text-sm">
@@ -25,7 +23,6 @@ export function WorldStats() {
         <Stat icon={weatherEmoji(weather)} label={formatGameTime(hour, minute)} />
         <Stat icon="👥" label={`${agents.length}`} />
         <Stat icon="🏘️" label={`${buildings.length}`} />
-        <Stat icon="💰" label={`${totalCoins}𝕊`} />
         <Stat icon={seasonEmoji(season)} label={season} />
       </div>
 

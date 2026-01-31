@@ -90,7 +90,7 @@ export function itemEmoji(item: string): string {
     cloth: '🧵',
     gem: '💎',
     sand: '🏖️',
-    coal: '�ite',
+    coal: '⚫',
   };
   return map[item.toLowerCase()] || '📦';
 }

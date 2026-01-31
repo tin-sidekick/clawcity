@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useEffect, useRef } from 'react';
-import { useWorldStore } from '../../stores/useWorldStore';
+import { useWorldStore } from '../../stores/worldStore';
 import { agentColor } from '../../utils/helpers';
 
 export function ChatFeed() {

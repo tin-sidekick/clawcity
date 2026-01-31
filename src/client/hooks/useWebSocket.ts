@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useEffect, useRef } from 'react';
-import { useWorldStore } from '../stores/useWorldStore';
+import { useWorldStore } from '../stores/worldStore';
 
 const WS_URL = `ws://${window.location.hostname}:3002`;
 
