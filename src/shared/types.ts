@@ -150,6 +150,7 @@ export type ActionType =
   | 'move'
   | 'gather'
   | 'chat'
+  | 'talk'
   | 'build'
   | 'trade'
   | 'rest'
