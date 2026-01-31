@@ -6,6 +6,8 @@ import { SpectatorWebSocket } from './ws/index.js';
 import { TickEngine } from './engine/tick.js';
 import { MapManager } from './engine/map.js';
 import { ActionQueue } from './engine/actions.js';
+import { HighlightDetector } from './engine/highlights.js';
+import { WorldEventSystem } from './engine/world-events.js';
 import { CONFIG } from './config.js';
 
 // --- Initialize ---
@@ -29,19 +31,31 @@ mapManager.generateMap(CONFIG.MAP_SIZE);
 // Action queue
 const actionQueue = new ActionQueue(mapManager);
 
+// Highlight detector
+const highlightDetector = new HighlightDetector();
+highlightDetector.loadFromDb();
+
+// World event system
+const worldEventSystem = new WorldEventSystem();
+worldEventSystem.attachHighlightDetector(highlightDetector);
+
 // Tick engine — wire up all components
 const engine = new TickEngine();
 engine.attachWebSocket(wsServer);
 engine.attachMapManager(mapManager);
 engine.attachActionQueue(actionQueue);
+engine.attachHighlightDetector(highlightDetector);
+engine.attachWorldEventSystem(worldEventSystem);
 
 // API routes — pass engine components
-setupAPI(app, wsServer);
+setupAPI(app, wsServer, highlightDetector, worldEventSystem);
 
 // Make engine components available globally for API routes
 (app as any).mapManager = mapManager;
 (app as any).actionQueue = actionQueue;
 (app as any).tickEngine = engine;
+(app as any).highlightDetector = highlightDetector;
+(app as any).worldEventSystem = worldEventSystem;
 
 // --- Start servers ---
 app.listen(CONFIG.PORT, () => {

@@ -8,7 +8,8 @@
     "dev": "nodemon --exec tsx src/server/index.ts",
     "build": "tsc",
     "start": "node dist/server/index.js",
-    "seed": "tsx src/server/db/seed.ts"
+    "seed": "tsx src/server/db/seed.ts",
+    "test:integration": "tsx src/server/test-integration.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

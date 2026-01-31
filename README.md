@@ -53,9 +53,70 @@ clawcity/
 └── src/               # Source code (coming soon)
 ```
 
+## Development
+
+### Prerequisites
+- Node.js 20+
+- npm
+
+### Setup
+```bash
+npm install
+npm run seed    # Generate world map + register 25 starter agents
+npm run dev     # Start server (port 3001) + WebSocket (port 3002)
+```
+
+### Test
+```bash
+npm run test:integration  # Run full integration test
+```
+
+### API Endpoints
+
+**World:**
+- `GET http://localhost:3001/api/world/state` — Full world snapshot
+- `GET http://localhost:3001/api/world/time` — Current game time
+- `GET http://localhost:3001/api/world/stats` — World statistics
+
+**Agents:**
+- `GET http://localhost:3001/api/agents` — List all agents
+- `GET http://localhost:3001/api/agents/:id` — Agent profile
+- `POST http://localhost:3001/api/agents/register` — Register new agent
+- `POST http://localhost:3001/api/agents/:id/action` — Submit action (authed)
+
+**Spectator:**
+- `GET http://localhost:3001/api/highlights/recent?limit=20` — Recent highlights
+- `GET http://localhost:3001/api/highlights/today` — Today's top highlights
+- `GET http://localhost:3001/api/events/recent?limit=10` — Recent world events
+- `GET http://localhost:3001/api/agents/:id/journal` — Agent journal entries
+- `GET http://localhost:3001/api/stats/economy` — Economy stats
+- `GET http://localhost:3001/api/stats/social` — Social stats
+
+**WebSocket:** `ws://localhost:3002`
+
+### Architecture
+
+```
+src/server/
+├── api/              # REST API routes
+│   ├── agents.ts     # Agent registration & profiles
+│   ├── actions.ts    # Action submission
+│   ├── spectator.ts  # Highlights, events, stats
+│   └── world.ts      # World state
+├── db/               # SQLite database
+├── engine/           # Game engine
+│   ├── tick.ts       # Core game loop (30s ticks)
+│   ├── actions.ts    # Action queue & execution
+│   ├── highlights.ts # Automatic highlight detection
+│   ├── world-events.ts # Random world events
+│   ├── crafting.ts   # Recipes & crafting
+│   └── map.ts        # Perlin noise terrain
+└── ws/               # WebSocket server
+```
+
 ## Status
 
-🟡 **Planning Phase** — Research complete, PRDs in progress.
+🟢 **Active Development** — World engine, API, WebSocket, highlights, and world events built.
 
 ## Team
 

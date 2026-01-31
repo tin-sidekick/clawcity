@@ -8,6 +8,8 @@ import { getWorldState, setWorldState, getAllAgents, getDb } from '../db/index.j
 import { CONFIG } from '../config.js';
 import { MapManager } from './map.js';
 import { ActionQueue } from './actions.js';
+import type { HighlightDetector } from './highlights.js';
+import type { WorldEventSystem } from './world-events.js';
 import type { SpectatorWebSocket } from '../ws/index.js';
 
 // --- Time Phase Mapping ---
@@ -29,6 +31,8 @@ export class TickEngine extends EventEmitter {
   private wsServer: SpectatorWebSocket | null = null;
   private mapManager: MapManager | null = null;
   private actionQueue: ActionQueue | null = null;
+  private highlightDetector: HighlightDetector | null = null;
+  private worldEventSystem: WorldEventSystem | null = null;
 
   attachWebSocket(wsServer: SpectatorWebSocket): void {
     this.wsServer = wsServer;
@@ -40,6 +44,14 @@ export class TickEngine extends EventEmitter {
 
   attachActionQueue(actionQueue: ActionQueue): void {
     this.actionQueue = actionQueue;
+  }
+
+  attachHighlightDetector(detector: HighlightDetector): void {
+    this.highlightDetector = detector;
+  }
+
+  attachWorldEventSystem(system: WorldEventSystem): void {
+    this.worldEventSystem = system;
   }
 
   start(): void {
@@ -93,6 +105,30 @@ export class TickEngine extends EventEmitter {
 
     // 6. Check for season change (every 3360 ticks)
     const seasonChanged = this.maybeUpdateSeason(newTick);
+
+    // 6b. Check for world events
+    if (this.worldEventSystem) {
+      const worldEvent = this.worldEventSystem.checkForEvents(newTick, this.getSeason(), this.getWeather());
+      if (worldEvent && this.wsServer) {
+        this.wsServer.broadcastWorldEvent('world_event', {
+          type: worldEvent.type,
+          summary: worldEvent.summary,
+          tick: newTick,
+        });
+      }
+      // Apply ongoing effects of active events
+      this.worldEventSystem.applyActiveEffects(newTick);
+    }
+
+    // 6c. Run highlight tick checks (milestones)
+    if (this.highlightDetector) {
+      const tickHighlights = this.highlightDetector.checkTick(newTick);
+      for (const h of tickHighlights) {
+        if (this.wsServer) {
+          this.wsServer.broadcastHighlight(h);
+        }
+      }
+    }
 
     // Energy regeneration for all agents (small passive regen)
     getDb().exec('UPDATE agents SET energy = MIN(1.0, energy + 0.01)');
